@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis - Ruangguru</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-xl w-full bg-slate-800 rounded-3xl p-8 shadow-2xl border border-slate-700">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                Sentimen AI Ruangguru
+            </h1>
+            <span id="status" class="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded-full border border-red-500/50">
+                Memuat Model...
+            </span>
+        </div>
+
+        <p class="text-slate-400 mb-4 text-sm">Masukkan ulasan aplikasi untuk dianalisis oleh model Bi-LSTM (Akurasi 86.84%).</p>
+
+        <textarea id="textInput" class="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-200" 
+                rows="4" placeholder="Contoh: Aplikasi ini sangat membantu belajar matematika..."></textarea>
+
+        <button onclick="predict()" id="btnPredict" disabled
+                class="w-full mt-6 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition duration-300 shadow-lg shadow-blue-900/20">
+            Analisis Sentimen
+        </button>
+
+        <div id="resultContainer" class="mt-8 hidden animate-fade-in">
+            <div id="resultBox" class="p-6 rounded-2xl border flex flex-col items-center text-center">
+                <span id="label" class="text-3xl mb-2"></span>
+                <h2 id="sentimentText" class="text-2xl font-black uppercase tracking-widest"></h2>
+                <p id="confidence" class="text-slate-400 text-sm mt-1"></p>
+            </div>
+        </div>
+
+        <footer class="mt-10 pt-6 border-t border-slate-700/50 text-center text-slate-500 text-xs italic">
+            Part of GSA 2026 & Zi-Alpha Project • Created by Rahmat Riyadi
+        </footer>
+    </div>
+
+    <script>
+        // PASTE HASIL COPY DARI COLAB DI SINI
+        const wordIndex = {"<OOV>": 1, "ruang": 2, "guru": 3}; // Gantilah dengan data asli
+        const maxLen = 80;
+        let model;
+
+        async function init() {
+            try {
+                // Pastikan folder 'tfjs_model' sudah kamu upload di repo yang sama
+                model = await tf.loadLayersModel('tfjs_model/model.json');
+                document.getElementById('status').innerText = "Model Siap";
+                document.getElementById('status').className = "text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/50";
+                document.getElementById('btnPredict').disabled = false;
+            } catch (e) {
+                document.getElementById('status').innerText = "Gagal Load Model";
+            }
+        }
+
+        function tokenize(text) {
+            const tokens = text.toLowerCase().split(/\s+/);
+            let sequence = tokens.map(word => wordIndex[word] || 1); // 1 adalah OOV
+            
+            // Padding
+            if (sequence.length > maxLen) {
+                sequence = sequence.slice(0, maxLen);
+            } else {
+                while (sequence.length < maxLen) {
+                    sequence.push(0);
+                }
+            }
+            return sequence;
+        }
+
+        async function predict() {
+            const input = document.getElementById('textInput').value;
+            if (!input.trim()) return;
+
+            const sequence = tokenize(input);
+            const inputTensor = tf.tensor2d([sequence], [1, maxLen]);
+            const prediction = model.predict(inputTensor);
+            const score = (await prediction.data())[0];
+
+            const isPositive = score > 0.5;
+            const confidence = isPositive ? score : 1 - score;
+
+            const container = document.getElementById('resultContainer');
+            const box = document.getElementById('resultBox');
+            const label = document.getElementById('label');
+            const text = document.getElementById('sentimentText');
+            const confText = document.getElementById('confidence');
+
+            container.classList.remove('hidden');
+            if (isPositive) {
+                box.className = "p-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400";
+                label.innerText = "😊";
+                text.innerText = "Positif";
+            } else {
+                box.className = "p-6 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-400";
+                label.innerText = "😡";
+                text.innerText = "Negatif";
+            }
+            confText.innerText = `Tingkat Keyakinan: ${(confidence * 100).toFixed(2)}%`;
+        }
+
+        init();
+    </script>
+</body>
+</html>
